@@ -2,12 +2,15 @@
 ## IMPORTS ##
 #############
 
+
 import pandas as pd
 import os.path
 import numpy as np
 import matplotlib
 import scipy
 from scipy.fft import fft
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 
 def waca(user='user1', test='1'):
     ###################
@@ -117,8 +120,8 @@ def waca(user='user1', test='1'):
         ''' X is a list of FFT data '''
         sum = 0
         for item in X:
-            sum += item #is it supposed to be the square of each item or the square of the total sum?
-        return sum**2 / len(X)
+            sum += abs(item) **2 #is it supposed to be the square of each item or the square of the total sum?
+        return sum / len(X)
 
     def shannon_entropy(label):
         vc = pd.Series(label).value_counts(normalize=True, sort=False)
@@ -150,6 +153,8 @@ def waca(user='user1', test='1'):
         
 
     labels = ['x_a', 'y_a', 'z_a', 'x_g', 'y_g', 'z_g']
+
+    #could have done a nested loop here but whatever -- can change if necessary
     extracted_features['covariance'].append(features_df['x_a'].cov(features_df['y_a']))
     extracted_features['covariance'].append(features_df['x_a'].cov(features_df['z_a']))
     extracted_features['covariance'].append(features_df['y_a'].cov(features_df['z_a']))
@@ -173,11 +178,23 @@ def waca(user='user1', test='1'):
     t_end = gyro_df.Time.iloc[-1]
     f_vec = feature_set.unstack().to_frame().sort_index(level=1).T
     f_vec.columns = f_vec.columns.map('_'.join)
+    pp.pprint('F_VEC: '+str(f_vec.iloc[0].tolist()))
+    normal_vec = normalize(np.array(f_vec.iloc[0].tolist()))
 
-    user_profile = [user_id, t_start, t_end, f_vec]
+    user_profile = [user_id, t_start, t_end, normal_vec]
     #print(user_profile)
     
     return user_profile
+
+def normalize(V):
+    '''Returns linear normalization of a vector A'''
+    normal_vec = []
+    x_max = max(V)
+    x_min = min(V)
+    for x in V:
+        x_new = (x - x_min) / (x_max - x_min)
+        normal_vec.append(x_new)
+    return normal_vec 
 
 
 users = [] #For now, this array works as the 'database' to store user profiles to test against each other 
@@ -189,6 +206,7 @@ user_1_2 = waca('user1', 2)
 
 users.append(user_1)
 users.append(user_2)
+users.append(user_1_2)
 
 ###################
 # DECISION MODULE #
@@ -196,6 +214,7 @@ users.append(user_2)
 
 threat_threshold = 0.05
 
+print()
 
 def minkow_dist(x, y, p=2):
     #takes two vectors stored as lists to return minkowski distance. 
@@ -206,9 +225,18 @@ def minkow_dist(x, y, p=2):
 
     return distance_sum ** (1/p)
 
-#print('LIST:', user_1[3].iloc[0].tolist())
+
+pp.pprint('LIST:'+str( user_1[3]))
 
 
+dist = minkow_dist(user_1[3], user_1_2[3], 2)
 
-#print('DISTANCES:\n', dist)
+print('DISTANCES:\n', dist)
 #manhattan_dist = scipy.cityblock()
+
+print()
+
+if dist < threat_threshold:
+    print('VERIFIED')
+else:
+    print('UNVERIFIED')
