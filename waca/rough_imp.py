@@ -9,8 +9,11 @@ import matplotlib
 import scipy
 from scipy.fft import fft
 from scipy import signal
+import pprint 
 
-pd.options.mode.chained_assignment = None  # default='warn'
+pp = pprint.PrettyPrinter()
+
+#pd.options.mode.chained_assignment = None  # default='warn'
 
 class UserProfile():
     def __init__(self, userID, start_time, end_time, f_vec):
@@ -42,22 +45,24 @@ def waca(user='user1', test='1'):
 
     f = file_paths[test-1]
     gen = pd.read_csv(f, names=['Sensor', 'Time', 'X', 'Y', 'Z'], on_bad_lines='skip') #general data
+    gen = gen.dropna()
 
     #accel is 10, gyro is 4
     GYRO_ID = 4
     ACCEL_ID = 10
 
     #Separate data by sensor id 
-    gyro_df = gen[gen.Sensor == GYRO_ID]
-    accel_df = gen[gen.Sensor == ACCEL_ID]
-
+    gyro_df = gen.loc[gen.Sensor == GYRO_ID]
+    accel_df = gen.loc[gen.Sensor == ACCEL_ID]
+    
 
     #sort data by time 
-    gyro_df.sort_values('Time', inplace=True)
-    accel_df.sort_values('Time', inplace=True)
+    gyro_df = gyro_df.sort_values('Time')
+    accel_df = accel_df.sort_values('Time')
+    
 
     #data is now separated and ordered by time, ready for M-point filer
-    #print(gyro_df.head())
+    
     #print(accel_df.head())
 
     ##################################
@@ -82,7 +87,7 @@ def waca(user='user1', test='1'):
 
     #Creating axis vectors 
 
-    N = 1500 #number of samples for a profile feature 
+    N = 1000 #number of samples for a profile feature 
     M_IDX = N + M -1#index of the Nth sample (accounts for NaNs of first M rows)
 
 
@@ -104,11 +109,12 @@ def waca(user='user1', test='1'):
     z_a = accel_df.loc[:, "MA_Z"]
     z_a = list(z_a[M-1:M_IDX])
 
-    z_g = accel_df.loc[:, "MA_Z"]
+    z_g = gyro_df.loc[:, "MA_Z"]
     z_g = list(z_g[M-1:M_IDX])
 
     features = {'x_a': x_a, 'y_a': y_a, 'z_a': z_a, 'x_g': x_g, 'y_g': y_g, 'z_g': z_g}
     features_df = pd.DataFrame.from_dict(features) #mostly for presentation purposes, will come in handy for feature extraction
+ 
     
 
     #the below may be necessary calculations (averaged time start/end)
@@ -138,7 +144,7 @@ def waca(user='user1', test='1'):
         return sum / len(X)
 
     def shannon_entropy(label):
-        vc = pd.Series(label).value_counts(normalize=True, sort=False)
+        vc = label.value_counts(normalize=True, sort=False)
         base = 2
         return -(vc * np.log(vc)/np.log(base)).sum()
 
@@ -164,6 +170,7 @@ def waca(user='user1', test='1'):
                     'entropy': [], 's_nrg': []} #features in the domain of frequency
 
     for column in features_df:
+        
         extracted_features['AADP'].append(aadp(features_df[column].tolist()))
         extracted_features['mean'].append(features_df[column].mean())
         extracted_features['median'].append(features_df[column].median())
@@ -177,7 +184,8 @@ def waca(user='user1', test='1'):
 
         #calculate the FFT for next calculations
         col_fft = fft(features_df[column].to_numpy())
-        extracted_features['entropy'].append(shannon_entropy(column))  
+        
+        extracted_features['entropy'].append(shannon_entropy(features_df[column]))  
         extracted_features['s_nrg'].append(spectral_energy(col_fft)) #what is up with the +0.00j??? 
         #extracted_features['AADP'].append(0)
     
@@ -200,13 +208,15 @@ def waca(user='user1', test='1'):
     extracted_features['correlation'].append(features_df['y_g'].corr(features_df['z_g']))
 
     feature_set = pd.DataFrame.from_dict(extracted_features, orient='index', columns=labels)
-
+    #print(feature_set)
 
     user_id = PARTICIPANT
     t_start = gyro_df.Time.loc[gyro_df.Time.first_valid_index()]
     t_end = gyro_df.Time.iloc[-1]
     f_vec = feature_set.unstack().to_frame().sort_index(level=1).T
     f_vec.columns = f_vec.columns.map('_'.join)
+    
+
     normal_vec = normalize(np.array(f_vec.iloc[0].tolist()))
 
     user_profile = UserProfile(user_id, t_start, t_end, normal_vec)
@@ -222,6 +232,8 @@ def normalize(V):
         x_new = (x - x_min) / (x_max - x_min)
         normal_vec.append(x_new)
     return normal_vec 
+
+#waca('user7', 1)
 
 
 users = {'test1': [], 'test2': [], 'test3': []} #For now, this array works as the 'database' to store user profiles to test against each other 
@@ -242,6 +254,7 @@ def get_users():
 get_users()
 
 #database = pd.DataFrame.from_dict(users)
+
 print(len(users['test1']))
 print(len(users['test2']))
 print(len(users['test3']))
@@ -250,18 +263,23 @@ print(len(users['test3']))
 # MAKE IT INTO A DATAFRAME
 ##########
 
-user_1 = waca('user1', 1)
-user_1_2 = waca('user1', 2)
-user_2 = waca('user2', 1)
-
-
 
 ###################
 # DECISION MODULE #
 ###################
 
-threat_threshold = 0.05
+class UserDist:
+    def __init__(self, user_a, user_b, dist):
+        self.user_a = user_a
+        self.user_b = user_b
+        self.dist = dist 
+    
+    def __repr__(self):
+        strings = [self.user_a, self.user_b, str(self.dist)]
+        return ','.join(strings)
 
+
+threat_threshold = 0.05
 
 def minkow_dist(x, y, p=2):
     #takes two vectors stored as lists to return minkowski distance. 
@@ -272,16 +290,69 @@ def minkow_dist(x, y, p=2):
 
     return distance_sum ** (1/p)
 
+user1 = users['test1'][1]
+user2 = users['test2'][1]
 
-dist = minkow_dist(user_1[3], user_1_2[3], 2)
+dist = minkow_dist(user1.f_vec, user2.f_vec, 2)
+manhattan_dist = scipy.spatial.distance.cityblock(user1.f_vec, user2.f_vec)
 
-manhattan_dist = scipy.spatial.distance.cityblock(user_1.f_vec, user_1_2.f_vec)
+measure = dist
+
+#populate dissimilarity matrix with all distances between users from test 1
+matrix = []
+for user in users['test1']:
+    dists = []
+    for next_user in users['test1']:
+        tup = UserDist(user.userID, next_user.userID, round(minkow_dist(user.f_vec, next_user.f_vec), 3))
+        dists.append(tup)
+    matrix.append(dists)
+
+matrix_df = pd.DataFrame(matrix)
+print(matrix_df)
 
 
 
-print('DISTANCES:\n', manhattan_dist)
+#legend
+TRUE_POS = 0 #valid acceptance
+FALSE_POS = 1 #false acceptance
+TRUE_NEG = 2 #valid reject
+FALSE_NEG  = 3 #false reject 
 
-if manhattan_dist < threat_threshold:
+
+def assign_validity(item):
+    new_item = UserDist(item.user_a, item.user_b, 0)
+    if item.user_a == item.user_b and item.dist < threat_threshold:
+        new_item.dist = TRUE_POS # valid acceptance
+    elif item.user_a == item.user_b and item.dist > threat_threshold:
+        new_item.dist = FALSE_NEG #false rejection
+    elif item.user_a != item.user_b and item.dist < threat_threshold:
+        new_item.dist = FALSE_POS #different users, valid distance
+    elif item.user_a != item.user_b and item.dist > threat_threshold:
+        new_item.dist = TRUE_NEG #difference users, invalid distance
+    return new_item
+
+
+#Matrix of all validly accepted users  
+
+ar_mat = [] #acceptance rate matrix
+
+for arr in matrix:
+    valid = []
+    for item in arr:
+        new_item = assign_validity(item)
+        valid.append(new_item)
+    ar_mat.append(valid)
+
+ar_mat_df = pd.DataFrame(ar_mat)
+print(ar_mat_df)
+        
+            
+
+
+print('DISTANCE:', measure )
+
+if measure < threat_threshold:
     print('VERIFIED')
 else:
     print('UNVERIFIED')
+
