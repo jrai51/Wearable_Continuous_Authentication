@@ -12,8 +12,7 @@ import scipy
 from scipy.fft import fft
 from scipy import signal
 import pprint
-
-from sklearn import preprocessing 
+import csv 
 
 pp = pprint.PrettyPrinter()
 
@@ -210,8 +209,7 @@ class WACA():
                         'min': [], 'max': [], 'rms': [],
                         'entropy': [], 's_nrg': []} #features in the domain of frequency
 
-        for column in features_df:
-            
+        for column in features_df:     
             extracted_features['AADP'].append(self.aadp(features_df[column].tolist()))
             extracted_features['mean'].append(features_df[column].mean())
             extracted_features['median'].append(features_df[column].median())
@@ -263,6 +261,25 @@ class WACA():
         return normal_vec
 
         
+    def label_vector(self, user, test):
+        ''' Writes user and feature vector to csv'''
+        f = open('USER-FEATURE-DATA.csv', 'a') #open csv file to write to 
+        user_profile = self.get_user(user, test)
+        if test == 1: 
+            for vec in user_profile.rv:
+                data = user+','+str(vec)+'\n'
+                print(data)
+                f.write(data)
+        else:
+            data = user+','+str(user_profile.f_vec)+'\n'
+            print(data)
+            f.write(data)
+        
+        f.close()
+        
+
+
+
 
     @staticmethod
     def normalize(V):
@@ -314,6 +331,7 @@ class WACA():
         except:
             return 0
 
+    
 
 AUTH = WACA()
 
@@ -321,7 +339,7 @@ AUTH = WACA()
 users = {'test1': [], 'test2': [], 'test3': []} #For now, this array works as the 'database' to store user profiles to test against each other 
 
 def get_users():
-    directory = "C:\\Users\\Jagrit Rai\\Documents\\GitHub\\Wearable_Continuous_Authentication\\waca\\user_data"
+    directory = "waca\\user_data"
     
     for root, subdirectories, files in os.walk(directory):
         for subdirectory in subdirectories:
@@ -367,7 +385,7 @@ def minkow_dist(x, y, p=2):
 
 dists = []
 
-
+print(users['test1'])
 for vec in users['test1'][0].rv:
     vec2 = users['test2'][0].f_vec
     dists.append(UserDist('1','1',minkow_dist(vec, vec2)))
