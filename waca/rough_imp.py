@@ -261,17 +261,23 @@ class WACA():
         return normal_vec
 
         
-    def label_vector(self, user, test):
+    def label_vector(self, user, test, file):
         ''' Writes user and feature vector to csv'''
-        f = open('USER-FEATURE-DATA.csv', 'a') #open csv file to write to 
+        f = open(file, 'a') #open csv file to write to 
         user_profile = self.get_user(user, test)
         if test == 1: 
             for vec in user_profile.rv:
-                data = user+','+str(vec)+'\n'
+                data = user
+                for feature in vec:
+                    data= data+','+str(feature)
+                data +='\n'
                 print(data)
                 f.write(data)
         else:
-            data = user+','+str(user_profile.f_vec)+'\n'
+            data = user
+            for feature in user_profile.f_vec:
+                data = data +','+str(user_profile.f_vec)
+            data +='\n'
             print(data)
             f.write(data)
         
