@@ -77,7 +77,7 @@ def filter(M):
 
     #Creating axis vectors 
 
-    N = 1000 #number of samples for a profile feature 
+    N = 1500 #number of samples for a profile feature 
     M_IDX = N + M -1#index of the Nth sample (accounts for NaNs of first M rows)
 
 
