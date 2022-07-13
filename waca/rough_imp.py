@@ -271,14 +271,12 @@ class WACA():
                 for feature in vec:
                     data= data+','+str(feature)
                 data +='\n'
-                print(data)
                 f.write(data)
         else:
             data = user
             for feature in user_profile.f_vec:
                 data = data +','+str(user_profile.f_vec)
             data +='\n'
-            print(data)
             f.write(data)
         
         f.close()
@@ -344,21 +342,21 @@ AUTH = WACA()
 
 users = {'test1': [], 'test2': [], 'test3': []} #For now, this array works as the 'database' to store user profiles to test against each other 
 
-def get_users():
+def get_users(test):
     directory = "waca\\user_data"
     
     for root, subdirectories, files in os.walk(directory):
         for subdirectory in subdirectories:
             try:
-                users['test1'].append(AUTH.get_user(subdirectory, 1))
-                users['test2'].append(AUTH.get_user(subdirectory, 2))
-                users['test3'].append(AUTH.get_user(subdirectory, 3))
+                users[test].append(AUTH.get_user(subdirectory, 1))
+                users[test].append(AUTH.get_user(subdirectory, 2))
+                users[test].append(AUTH.get_user(subdirectory, 3))
             
             except:
                 pass    
   
 
-get_users()
+get_users('test1')
 
 print(users)
 
@@ -389,14 +387,16 @@ def minkow_dist(x, y, p=2):
 
     return distance_sum ** (1/p)
 
-dists = []
 
-print(users['test1'])
-for vec in users['test1'][0].rv:
-    vec2 = users['test2'][0].f_vec
-    dists.append(UserDist('1','1',minkow_dist(vec, vec2)))
+if __name__ == "__main__":
+    dists = []
 
-print(dists)
+    print(users['test1'])
+    for vec in users['test1'][0].rv:
+        vec2 = users['test2'][0].f_vec
+        dists.append(UserDist('1','1',minkow_dist(vec, vec2)))
+
+    print(dists)
 
 
 '''
