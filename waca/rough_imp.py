@@ -41,12 +41,12 @@ class WACA():
         self.time_end = None
         self.registration_data = None
 
-    def get_user(self, user, test):
+    def get_user(self, user, test, overlap=0):
         self.user = user
         self.test = test
         '''user, test -> returns '''
         if self.test == 1:
-            self.registration_data = self.preprocessing()
+            self.registration_data = self.preprocessing(overlap)
             vectors = []
             for df in self.registration_data:
                 vectors.append(self.feature_extraction(df))
@@ -59,7 +59,7 @@ class WACA():
             user_profile = UserProfile(self.user, self.time_start, self.time_end, normal_vec)
         return user_profile
 
-    def preprocessing(self):
+    def preprocessing(self, overlap=0):
         ''' RETURNS FEATURE DATAFRAME '''
         ###################
         ## PREPROCESSING ##
@@ -120,15 +120,24 @@ class WACA():
         #Creating axis vectors 
 
         N = 1500 #number of samples for a profile feature 
-        M_IDX = N + M -1#index of the Nth sample (accounts for NaNs of first M rows)
+
+        overlap_size = round(N * overlap)#number of indices to retreat by 
+        print(overlap_size)
 
         if (self.test == 1):
             #get windows of data to use as registration data
             registration_dfs = []
-            windows = min( (len(gyro_df) // N), len(accel_df//N))
-            for window in range(0, windows-4): #WHY????? 
-                START_IDX = (M-1) + (window * N)
-                M_IDX = N + M-1 + (N*window)
+            length = min(len(gyro_df), len(accel_df))
+            START_IDX = M-1
+            M_IDX = START_IDX + N
+            windows = 0
+
+            while M_IDX <= length: 
+                print(M_IDX)
+                if windows != 0:
+                    START_IDX -= overlap_size
+                    M_IDX -= overlap_size
+    
                 #get one feature vector to compare to registration data 
                 #X axis 
                 x_a = accel_df.loc[:, "MA_X"]
@@ -153,9 +162,12 @@ class WACA():
 
                 features = {'x_a': x_a, 'y_a': y_a, 'z_a': z_a, 'x_g': x_g, 'y_g': y_g, 'z_g': z_g}
                 features_df = pd.DataFrame.from_dict(features) #mostly for presentation purposes, will come in handy for feature extraction
-                
-               
+
                 registration_dfs.append(features_df)
+                START_IDX += N
+                M_IDX += N
+                windows+=1
+
             return registration_dfs
         else:
             #get one feature vector to compare to registration data 
@@ -261,10 +273,10 @@ class WACA():
         return normal_vec
 
         
-    def label_vector(self, user, test, file):
-        ''' Writes user and feature vector to csv'''
+    def label_vector(self, user, test, overlap, file):
+        ''' userID, test number, overlap %, creates file name to write to'''
         f = open(file, 'a') #open csv file to write to 
-        user_profile = self.get_user(user, test)
+        user_profile = self.get_user(user, test, overlap)
         if test == 1: 
             for vec in user_profile.rv:
                 data = user
@@ -342,22 +354,32 @@ AUTH = WACA()
 
 users = {'test1': [], 'test2': [], 'test3': []} #For now, this array works as the 'database' to store user profiles to test against each other 
 
-def get_users(test):
+def fill_database():
     directory = "waca\\user_data"
     
     for root, subdirectories, files in os.walk(directory):
         for subdirectory in subdirectories:
             try:
-                users[test].append(AUTH.get_user(subdirectory, 1))
-                users[test].append(AUTH.get_user(subdirectory, 2))
-                users[test].append(AUTH.get_user(subdirectory, 3))
-            
+                users['test1'].append(AUTH.get_user(subdirectory, 1))
+                users['test2'].append(AUTH.get_user(subdirectory, 2))
+                users['test3'].append(AUTH.get_user(subdirectory, 3))
             except:
                 pass    
   
+directory = "waca\\user_data"
 
-get_users('test1')
+def fill_file(dir, test, overlap, csv):
+    for root, subdirectories, files in os.walk(dir):
+        for subdirectory in subdirectories:
+            try:
+                AUTH.label_vector(subdirectory, test, overlap, csv)
+            except:
+                pass    
 
+#fill_file(directory, 1, 0, 'NEW_SAMPLES.csv')
+AUTH.label_vector('user1', 1, 0.25, 'test2.csv')
+
+'''
 print(users)
 
 
@@ -399,7 +421,6 @@ if __name__ == "__main__":
     print(dists)
 
 
-'''
 
 user1 = users['test1'][1]
 user2 = users['test2'][1]
