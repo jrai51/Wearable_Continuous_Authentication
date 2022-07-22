@@ -133,7 +133,6 @@ class WACA():
             windows = 0
 
             while M_IDX <= length: 
-                print(M_IDX)
                 if windows != 0:
                     START_IDX -= overlap_size
                     M_IDX -= overlap_size
